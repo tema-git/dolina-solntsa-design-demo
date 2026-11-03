@@ -1,0 +1,70 @@
+{
+  "company": "Долина солнца",
+  "category": "Орехи, снеки, сухофрукты",
+  "city": "Москва",
+  "address": "проспект Вернадского, 14",
+  "location": "Районный центр «Место встречи Звёздный»",
+  "floor": "-1",
+  "phone": "+79261996544",
+  "checked_on": "2026-11-04",
+  "sources": [
+    {
+      "url": "https://zvyozdniy.mestovstrechi.ru/",
+      "supports": [
+        "Название магазина",
+        "Орехи, снеки, сухофрукты",
+        "-1 этаж",
+        "Адрес районного центра"
+      ]
+    },
+    {
+      "url": "https://urbanplaces.su/ru_moskva/moskva/metro-prospekt-vernadskogo",
+      "supports": [
+        "Публичный рабочий телефон +79261996544"
+      ]
+    },
+    {
+      "url": "https://urbanplaces.su/ru_moskva/moskva/card-70000001089849691-dolina-solntsa",
+      "supports": [
+        "Предыдущая проверка названия, категории, адреса и телефона от21.10.2026"
+      ]
+    }
+  ],
+  "demo": true,
+  "official_company_site": false,
+  "noindex": true,
+  "form_backend": null,
+  "stores_personal_data": false,
+  "factual_boundaries": [
+    "Рабочие часы районного центра не представлены как часы магазина.",
+    "Не опубликованы неподтверждённые цены, доставка, сертификаты, отзывы или происхождение продукции.",
+    "Ингредиенты и комбинации являются иллюстрацией дизайна, не актуальной товарной базой.",
+    "Логотип и упаковка — авторская концепция, не официальные материалы."
+  ],
+  "artwork": {
+    "technique": "Original inline SVG and CSS authored in this project. Animation via local GSAP and native JS.",
+    "bitmap_assets_used": false,
+    "video_assets_used": false,
+    "external_assets_at_runtime": false
+  },
+  "fonts": {
+    "family": "Golos Text",
+    "source": "Locally reused bundled font files from existing za-kofe-coffee-design-demo",
+    "license": "assets/OFL-Golos-Text.txt"
+  },
+  "base_template_cluster": "Фрукты, орехи и сухофрукты",
+  "motion_control": {
+    "type": "visible footer toggle",
+    "system_reduce_priority": true,
+    "persistence": "memory only, current page",
+    "scope": [
+      "scroll scenes",
+      "autoplay loops",
+      "pointer response",
+      "interaction tweens",
+      "CSS transitions",
+      "smooth scrolling"
+    ]
+  },
+  "no_javascript_form": "Submit button disabled until the preventDefault handler is installed; noscript offers a phone link."
+}

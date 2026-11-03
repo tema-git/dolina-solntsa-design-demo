@@ -1,0 +1,37 @@
+{
+  "checked_on": "2026-11-04",
+  "checks": {
+    "unique_ids": true,
+    "all_internal_references_resolve": true,
+    "all_linked_local_assets_exist": true,
+    "no_bitmap_or_video_in_document": true,
+    "no_unicode_ui_icons": true,
+    "javascript_syntax": "node --check passed",
+    "no_network_form_or_storage": true,
+    "robots_noindex": true,
+    "all_inputs_have_labels": true,
+    "all_inputs_have_meaningful_names": true,
+    "no_js_submit_disabled": true,
+    "motion_pause_control": true,
+    "motion_off_native_scroll": true,
+    "validation_live_regions": true
+  },
+  "counts": {
+    "unique_ids": 61,
+    "svg_uses": 75,
+    "html_bytes": 31013,
+    "js_bytes": 21629,
+    "css_bytes": 36263
+  },
+  "browser_qa": "Parent agent performs browser QA; new pause and no-JS cases require final integration pass. Previous desktop/mobile390/320 functional checks passed.",
+  "contrast_ratios": {
+    "main": 10.45,
+    "muted": 6.0,
+    "dark_muted": 6.95,
+    "primary": 5.07,
+    "selection_light": 6.13,
+    "selection_dark": 7.03,
+    "selection_on_orange": 5.24,
+    "placeholder": 4.96
+  }
+}
