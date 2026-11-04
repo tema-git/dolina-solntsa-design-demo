@@ -12,18 +12,28 @@
     "all_inputs_have_labels": true,
     "all_inputs_have_meaningful_names": true,
     "no_js_submit_disabled": true,
-    "motion_pause_control": true,
     "motion_off_native_scroll": true,
-    "validation_live_regions": true
+    "validation_live_regions": true,
+    "motion_system_only": true,
+    "no_native_select": true,
+    "custom_combobox_aria_references": true,
+    "hero_motion_layers_separated": true,
+    "all_svg_assets_xml_valid": true,
+    "no_visible_input_method_hints": true,
+    "no_visible_motion_toggle": true,
+    "plain_studio_credit": true,
+    "deferred_header_focus_guard": true,
+    "taste_and_moment_motion_layers_separated": true
   },
   "counts": {
-    "unique_ids": 61,
-    "svg_uses": 75,
-    "html_bytes": 31013,
-    "js_bytes": 21987,
-    "css_bytes": 36920
+    "unique_ids": 71,
+    "svg_uses": 115,
+    "aria_and_fragment_references": 148,
+    "html_bytes": 36787,
+    "js_bytes": 28700,
+    "css_bytes": 41006
   },
-  "browser_qa": "Parent integration passed: desktop/mobile 320/390/768/1280, game, tabs, form, focus, motion toggle. No-JS submit protection reviewed in source.",
+  "browser_qa": "Current revision exercised in local in-app browser; see parent_browser_audit for coverage and limits.",
   "contrast_ratios": {
     "main": 10.45,
     "muted": 6.0,
@@ -35,7 +45,7 @@
     "placeholder": 4.96
   },
   "source_audit": "AUDIT.md",
-  "parent_browser_audit": {
+  "previous_parent_browser_audit": {
     "date": "2026-11-04",
     "status": "passed",
     "viewports": [
@@ -54,5 +64,46 @@
       "No physical iOS/Android device test",
       "No-JS submission guard reviewed in source"
     ]
+  },
+  "parent_browser_audit": {
+    "date": "2026-11-04",
+    "status": "passed",
+    "revision": "current post-audit revision",
+    "viewports": [
+      320,
+      390,
+      768,
+      1280,
+      1920
+    ],
+    "verified": [
+      "Desktop browser interaction plus responsive widths 320, 390, 768, 1280, 1920; no root horizontal overflow in scanned layouts",
+      "Game/configurator completion, invalid and valid demo-form paths, success and repeat/reset",
+      "Sticky visible Contacts, accent actions, SVG arrows, transparent text selection",
+      "Custom listbox keyboard navigation and cancel/commit behavior",
+      "No manual motion controls, native select elements, raster/video scene elements or visible device-input instructions",
+      "Exact footer credit: Сайт создан Spoki Studio",
+      "Local assets/anchors/unique IDs and JavaScript syntax passed; browser console had no site warnings/errors",
+      "Pointer moves bowl gently in both directions while ingredient layout transforms stay intact",
+      "Almond, apricot, date and raisin are distinct procedural SVG artwork",
+      "Four ingredients produce result; fifth is blocked; removal, reset and keyboard addition work",
+      "Rapid taste/moment changes retain content and leave outer scroll animation working in both directions",
+      "Mobile menu, custom dropdown selection and popup placement verified",
+      "Latest inner-feedback scene changes checked in normal and simulated reduced motion"
+    ],
+    "limits": [
+      "Viewport emulation only; no physical iOS or Android device test",
+      "Reduced-motion coverage uses an unpublished local fixture simulating matchMedia and the CSS media query; OS preference was not changed",
+      "No-JavaScript submission guard reviewed in source rather than browser-disabled-JavaScript execution",
+      "No real order/callback backend: forms intentionally demonstrate validation without sending or storing personal data",
+      "Direct public Pages HTTP access timed out from this environment; publication is verified separately through GitHub build status and deployed revision"
+    ]
+  },
+  "final_static_audit": {
+    "slug": "dolina-solntsa-design-demo",
+    "issues": [],
+    "ids": 71,
+    "references": 139,
+    "images": 0
   }
 }

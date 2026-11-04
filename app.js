@@ -3,7 +3,6 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
-  let userMotionEnabled = true;
   let motionEnabled = !reduced.matches;
   let pageActive = true;
   let motionContext = null;
@@ -27,10 +26,13 @@
     nav.classList.toggle('is-open', open);
   });
   function followHeaderLink(link) {
+    const activeAtClick = document.activeElement;
     closeMenu();
     const destination = document.getElementById(link.hash.slice(1));
     const heading = destination?.querySelector('h1, h2');
     if (heading) requestAnimationFrame(() => {
+      const activeNow = document.activeElement;
+      if (activeNow !== link && activeNow !== activeAtClick && activeNow !== document.body) return;
       heading.setAttribute('tabindex', '-1');
       heading.focus({preventScroll:true});
     });
@@ -51,7 +53,28 @@
     if (!header.contains(document.activeElement)) closeMenu();
   }));
 
-  // Pointer motion is limited to decorative layers. Buttons and text never move.
+  // The anchor keeps its hitbox; only its decorative face moves by at most 5px.
+  const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
+  const contactAnchor = $('.header-contact');
+  function resetMagnet() {
+    contactAnchor.style.setProperty('--magnet-x','0px');
+    contactAnchor.style.setProperty('--magnet-y','0px');
+  }
+  function moveMagnet(event) {
+    if (!motionEnabled || !finePointer.matches || event.pointerType === 'touch') return;
+    const rect = contactAnchor.getBoundingClientRect();
+    const clamp = value => Math.max(-1,Math.min(1,value));
+    contactAnchor.style.setProperty('--magnet-x',`${clamp((event.clientX-rect.left)/rect.width*2-1)*5}px`);
+    contactAnchor.style.setProperty('--magnet-y',`${clamp((event.clientY-rect.top)/rect.height*2-1)*4}px`);
+  }
+  contactAnchor.addEventListener('pointerenter',moveMagnet,{passive:true});
+  contactAnchor.addEventListener('pointermove',moveMagnet,{passive:true});
+  contactAnchor.addEventListener('pointerleave',resetMagnet,{passive:true});
+  contactAnchor.addEventListener('blur',()=>{if(!contactAnchor.matches(':hover'))resetMagnet();});
+  contactAnchor.addEventListener('keydown',resetMagnet);
+  finePointer.addEventListener('change',resetMagnet);
+
+  // One gently interpolated pointer value drives independent decorative layers.
   const pointerStates = new Map();
   let pointerFrame = 0;
   function renderPointer() {
@@ -60,7 +83,7 @@
     let unfinished = false;
     for (const [section, state] of pointerStates) {
       const dx = state.tx - state.x, dy = state.ty - state.y;
-      state.x += dx * .16; state.y += dy * .16;
+      state.x += dx * .11; state.y += dy * .11;
       if (Math.abs(dx) + Math.abs(dy) > .002) unfinished = true;
       section.style.setProperty('--px', state.x.toFixed(4));
       section.style.setProperty('--py', state.y.toFixed(4));
@@ -71,28 +94,36 @@
   }
   function schedulePointer() { if (!pointerFrame && !document.hidden && motionEnabled && pageActive) pointerFrame = requestAnimationFrame(renderPointer); }
   $$('.pointer-scene').forEach(section => {
-    const state = {x:0,y:0,tx:0,ty:0,rect:null}; pointerStates.set(section, state);
+    const state = {x:0,y:0,tx:0,ty:0,rect:null,restore:0}; pointerStates.set(section, state);
+    const settle = () => {state.tx=0;state.ty=0;schedulePointer();};
     const move = event => {
       if (!motionEnabled || !pageActive) return;
-      state.rect ||= section.getBoundingClientRect();
+      // Hero depth is relative to the bowl, rather than the full-width section.
+      const surface = section.matches('.hero') ? $('.hero-art',section) : section;
+      state.rect ||= surface.getBoundingClientRect();
       state.tx = Math.max(-1, Math.min(1, ((event.clientX - state.rect.left) / state.rect.width - .5) * 2));
       state.ty = Math.max(-1, Math.min(1, ((event.clientY - state.rect.top) / state.rect.height - .5) * 2));
       schedulePointer();
     };
-    section.addEventListener('pointerenter', event => {state.rect = section.getBoundingClientRect(); move(event);}, {passive:true});
-    section.addEventListener('pointermove', move, {passive:true});
-    section.addEventListener('pointerdown', move, {passive:true});
-    section.addEventListener('pointerleave', () => {state.tx = 0; state.ty = 0; schedulePointer();}, {passive:true});
-    section.addEventListener('focusin', () => {if (motionEnabled && pageActive) {state.tx = .23; state.ty = -.15; schedulePointer();}});
-    section.addEventListener('focusout', () => {state.tx = 0;state.ty = 0;schedulePointer();});
+    section.addEventListener('pointerenter', event => {state.rect=null;if(event.pointerType!=='touch')move(event);}, {passive:true});
+    section.addEventListener('pointermove', event => {if(event.pointerType!=='touch')move(event);}, {passive:true});
+    section.addEventListener('pointerdown', event => {
+      clearTimeout(state.restore);move(event);
+      if(event.pointerType==='touch')state.restore=setTimeout(settle,650);
+    }, {passive:true});
+    section.addEventListener('pointerup',event=>{if(event.pointerType==='touch'){clearTimeout(state.restore);state.restore=setTimeout(settle,300);}}, {passive:true});
+    section.addEventListener('pointercancel',settle,{passive:true});
+    section.addEventListener('pointerleave',settle,{passive:true});
+    section.addEventListener('focusin',()=>{if(motionEnabled&&pageActive){state.tx=.15;state.ty=-.1;schedulePointer();}});
+    section.addEventListener('focusout',settle);
   });
   const invalidateRects = () => pointerStates.forEach(state => {state.rect = null;});
   window.addEventListener('scroll', invalidateRects, {passive:true});
   window.addEventListener('resize', invalidateRects, {passive:true});
   function resetPointer() {
-    cancelAnimationFrame(pointerFrame); pointerFrame = 0;
+    cancelAnimationFrame(pointerFrame); pointerFrame = 0;resetMagnet();
     pointerStates.forEach((state, section) => {
-      state.x=state.y=state.tx=state.ty=0;
+      clearTimeout(state.restore);state.x=state.y=state.tx=state.ty=0;
       section.style.setProperty('--px','0');section.style.setProperty('--py','0');
       section.style.setProperty('--light-x','50%');section.style.setProperty('--light-y','50%');
     });
@@ -116,7 +147,7 @@
     $$('.taste-item').forEach((item, index) => { $('use', item).setAttribute('href', `#nut-${data.ingredients[index]}`); });
     $('#taste-panel').style.backgroundColor = data.color;
     if (canAnimate()) {
-      gsap.fromTo('.taste-item', {scale:.55,rotation:-12,opacity:.4}, {scale:1,rotation:0,opacity:1,duration:.55,stagger:.07,ease:'back.out(1.4)',overwrite:true});
+      gsap.fromTo('.taste-feedback', {scale:.55,rotation:-12,opacity:.4,svgOrigin:'120 130'}, {scale:1,rotation:0,opacity:1,duration:.55,stagger:.07,ease:'back.out(1.4)',overwrite:true,clearProps:'transform,opacity'});
       gsap.fromTo('.taste-copy', {opacity:.5,y:10}, {opacity:1,y:0,duration:.3,overwrite:true});
     }
   }
@@ -193,24 +224,110 @@
     $$('.moment-button').forEach(item=>{const active=item===button;item.classList.toggle('is-active',active);item.setAttribute('aria-pressed',String(active));});
     $('#moment-title').textContent=data.title;$('#moment-text').textContent=data.text;$('#bag-message').innerHTML=data.bag;
     if(canAnimate()) {
-      gsap.fromTo('.paper-bag',{rotation:-10,y:20},{rotation:0,y:0,duration:.6,ease:'back.out(1.6)',overwrite:true});
-      gsap.fromTo('.bag-fruit',{scale:.75,rotation:-20},{scale:1,rotation:0,duration:.6,stagger:.06,ease:'back.out(1.7)',overwrite:true});
+      gsap.fromTo('.bag-feedback',{rotation:-10,y:20},{rotation:0,y:0,duration:.6,ease:'back.out(1.6)',overwrite:true,clearProps:'transform'});
+      gsap.fromTo('.fruit-feedback',{scale:.75,rotation:-20,svgOrigin:'120 130'},{scale:1,rotation:0,duration:.6,stagger:.06,ease:'back.out(1.7)',overwrite:true,clearProps:'transform'});
     }
   }));
+
+  // Select-only combobox: focus stays on the trigger, selection commits explicitly.
+  const picker=$('#topic-picker'),topicButton=$('#contact-topic'),topicList=$('#topic-options');
+  const topicInput=$('#topic-input'),topicValue=$('#topic-value'),topicOptions=$$('[role="option"]',topicList);
+  let topicOpen=false,topicSelected=0,topicActive=0,typeBuffer='',typeTimer=0;
+  function placeTopicList() {
+    if(!topicOpen)return;
+    const rect=topicButton.getBoundingClientRect();
+    const viewport=window.visualViewport;
+    const bottom=(viewport?.offsetTop||0)+(viewport?.height||window.innerHeight);
+    const clip=$('.contact-section').getBoundingClientRect();
+    const safeTop=Math.max(header.getBoundingClientRect().bottom+12,viewport?.offsetTop||0,clip.top);
+    const below=Math.min(bottom,clip.bottom)-rect.bottom-12,above=rect.top-safeTop-12;
+    const desired=Math.min(268,topicList.scrollHeight+2);
+    const up=below<desired&&above>below;
+    picker.classList.toggle('opens-up',up);
+    topicList.style.maxHeight=`${Math.max(52,Math.min(268,up?above:below))}px`;
+  }
+  function showActiveOption() {
+    topicOptions.forEach((option,index)=>option.classList.toggle('is-active',index===topicActive));
+    topicButton.setAttribute('aria-activedescendant',topicOptions[topicActive].id);
+    const option=topicOptions[topicActive];
+    // Scroll only the popup, never the document or a parent container.
+    if(option.offsetTop<topicList.scrollTop)topicList.scrollTop=option.offsetTop;
+    else if(option.offsetTop+option.offsetHeight>topicList.scrollTop+topicList.clientHeight)topicList.scrollTop=option.offsetTop+option.offsetHeight-topicList.clientHeight;
+  }
+  function setTopic(index) {
+    topicSelected=index;topicActive=index;
+    topicInput.value=topicOptions[index].dataset.value;
+    topicValue.textContent=$('span',topicOptions[index]).textContent;
+    topicOptions.forEach((option,i)=>option.setAttribute('aria-selected',String(i===index)));
+    topicButton.removeAttribute('aria-invalid');$('#topic-error').textContent='';
+  }
+  function openTopic(index=topicSelected) {
+    topicOpen=true;topicActive=index;topicList.hidden=false;
+    topicButton.setAttribute('aria-expanded','true');placeTopicList();showActiveOption();
+  }
+  function closeTopic(commit=false) {
+    if(!topicOpen)return;
+    if(commit)setTopic(topicActive);
+    topicOpen=false;topicList.hidden=true;topicButton.setAttribute('aria-expanded','false');
+    topicButton.removeAttribute('aria-activedescendant');picker.classList.remove('opens-up');
+    typeBuffer='';clearTimeout(typeTimer);
+  }
+  topicButton.addEventListener('click',()=>{if(topicOpen)closeTopic();else openTopic();});
+  topicButton.addEventListener('keydown',event=>{
+    const key=event.key;
+    if(['ArrowDown','ArrowUp','Home','End'].includes(key)) {
+      event.preventDefault();
+      if(!topicOpen)openTopic(key==='Home'?0:key==='End'?topicOptions.length-1:topicSelected);
+      else {
+        topicActive=key==='Home'?0:key==='End'?topicOptions.length-1:Math.max(0,Math.min(topicOptions.length-1,topicActive+(key==='ArrowDown'?1:-1)));
+        showActiveOption();
+      }
+      return;
+    }
+    if(key==='Enter'||key===' ') {event.preventDefault();if(topicOpen)closeTopic(true);else openTopic();return;}
+    if(key==='Escape'&&topicOpen){event.preventDefault();event.stopPropagation();closeTopic();return;}
+    if(key==='Tab'){closeTopic(true);return;}
+    if(key.length===1&&!event.ctrlKey&&!event.metaKey&&!event.altKey) {
+      event.preventDefault();
+      if(!topicOpen)openTopic();
+      clearTimeout(typeTimer);typeBuffer+=key.toLocaleLowerCase('ru');
+      const repeated=[...typeBuffer].every(character=>character===typeBuffer[0]);
+      const query=repeated?typeBuffer[0]:typeBuffer;
+      const start=repeated?topicActive+1:topicActive;
+      for(let offset=0;offset<topicOptions.length;offset++) {
+        const index=(start+offset)%topicOptions.length;
+        if(topicOptions[index].textContent.trim().toLocaleLowerCase('ru').startsWith(query)){topicActive=index;showActiveOption();break;}
+      }
+      typeTimer=setTimeout(()=>{typeBuffer='';},800);
+    }
+  });
+  topicOptions.forEach((option,index)=>{
+    option.addEventListener('pointerdown',event=>event.preventDefault());
+    option.addEventListener('click',()=>{topicActive=index;closeTopic(true);topicButton.focus({preventScroll:true});});
+    option.addEventListener('pointermove',event=>{if(event.pointerType!=='touch'){topicActive=index;showActiveOption();}});
+  });
+  document.addEventListener('pointerdown',event=>{if(topicOpen&&!picker.contains(event.target))closeTopic();},{passive:true});
+  topicButton.addEventListener('blur',()=>closeTopic());
+  window.addEventListener('resize',placeTopicList,{passive:true});
+  window.addEventListener('scroll',placeTopicList,{passive:true});
+  window.visualViewport?.addEventListener('resize',placeTopicList,{passive:true});
+  window.visualViewport?.addEventListener('scroll',placeTopicList,{passive:true});
 
   // Honest browser-only demonstration. Input values never leave this closure or persist.
   const form=$('#contact-form'),success=$('#form-success');
   const nameInput=$('#contact-name'),phoneInput=$('#contact-phone');
   function clearError(input) {input.removeAttribute('aria-invalid');$(`#${input.name}-error`).textContent='';}
   [nameInput,phoneInput].forEach(input=>input.addEventListener('input',()=>clearError(input)));
+  form.addEventListener('reset',()=>{closeTopic();setTopic(0);clearError(nameInput);clearError(phoneInput);});
   form.addEventListener('submit',event=>{
-    event.preventDefault();
+    event.preventDefault();closeTopic(true);
     const name=nameInput.value.trim(),phone=phoneInput.value.trim(),digits=phone.replace(/\D/g,'');
     const errors=[];
-    clearError(nameInput);clearError(phoneInput);
-    if((name.match(/\p{L}/gu)||[]).length<2) errors.push([nameInput,'Введите имя — хотя бы 2 буквы.']);
-    if(!/^\+?[()\d\s-]+$/.test(phone)||digits.length<10||digits.length>15) errors.push([phoneInput,'Введите телефон: от 10 до 15 цифр.']);
-    errors.forEach(([input,message])=>{input.setAttribute('aria-invalid','true');$(`#${input.name}-error`).textContent=message;});
+    clearError(nameInput);clearError(phoneInput);topicButton.removeAttribute('aria-invalid');$('#topic-error').textContent='';
+    if((name.match(/\p{L}/gu)||[]).length<2) errors.push([nameInput,'Введите имя — хотя бы 2 буквы.','name']);
+    if(!/^\+?[()\d\s-]+$/.test(phone)||digits.length<10||digits.length>15) errors.push([phoneInput,'Введите телефон: от 10 до 15 цифр.','phone']);
+    if(!topicOptions.some(option=>option.dataset.value===topicInput.value))errors.push([topicButton,'Выберите тему обращения.','topic']);
+    errors.forEach(([input,message,key])=>{input.setAttribute('aria-invalid','true');$(`#${key}-error`).textContent=message;});
     if(errors.length){errors[0][0].focus();refresh();return;}
     form.reset();form.hidden=true;success.hidden=false;success.focus({preventScroll:true});refresh();
   });
@@ -229,15 +346,16 @@
       if (!heroIntroPlayed) {
         heroIntroPlayed = true;
         heroIntro = gsap.timeline({defaults:{ease:'power3.out'}});
-        heroIntro.from('.vector-bowl',{scale:.88,y:40,duration:1.2,transformOrigin:'50% 80%'},0)
-        .from('.hero-nut',{x:i=>(i%2?-1:1)*40,y:i=>-45-(i%3)*15,rotation:i=>(i%2?-1:1)*16,duration:1.1,stagger:.018,transformOrigin:'center center'},.1)
-        .from('.hero-float',{scale:.6,y:80,rotation:15,duration:1.3,stagger:.07,transformOrigin:'center'},.2)
-        .from('.hero-orbits i',{scale:.6,opacity:0,duration:1.4,stagger:.12},.1);
+        heroIntro.from('.hero-bowl-intro',{scale:.97,y:18,duration:1.25,svgOrigin:'363 470'},0)
+        .from('.hero-float-intro',{scale:.94,y:20,rotation:3,duration:1.35,stagger:.05,transformOrigin:'center'},.05)
+        .from('.hero-orbits i',{opacity:.2,duration:1.4,stagger:.1},.1);
       }
       gsap.to('.hero-sun>svg',{rotation:60,ease:'none',scrollTrigger:{trigger:'.hero',start:'top top',end:'bottom top',scrub:1}});
-      gsap.to('.hero-float',{y:i=>(i%2?-1:1)*(mobile?28:65),x:i=>(i%2?-1:1)*(mobile?18:45),rotation:i=>(i%2?-1:1)*18,ease:'none',scrollTrigger:{trigger:'.hero',start:'top top',end:'bottom top',scrub:.8}});
-      gsap.to('.hero-orbits',{rotation:45,ease:'none',scrollTrigger:{trigger:'.hero',start:'top top',end:'bottom top',scrub:.8}});
-      gsap.fromTo('.ribbon-track',{x:60},{x:-150,ease:'none',scrollTrigger:{trigger:'.ribbon',start:'top bottom',end:'bottom top',scrub:1}});
+      // Layout groups keep their authored SVG coordinates. Each motion has its own group.
+      gsap.to('.hero-bowl-scroll',{y:-18,scale:1.015,svgOrigin:'363 470',ease:'none',scrollTrigger:{trigger:'.hero',start:'top top',end:'bottom top',scrub:1}});
+      gsap.to('.hero-float-scroll',{y:i=>(i%2?-1:1)*(mobile?10:18),x:i=>(i%2?-1:1)*(mobile?8:15),rotation:i=>(i%2?-1:1)*4,transformOrigin:'center',ease:'none',scrollTrigger:{trigger:'.hero',start:'top top',end:'bottom top',scrub:1}});
+      gsap.to('.hero-orbits',{rotation:30,ease:'none',scrollTrigger:{trigger:'.hero',start:'top top',end:'bottom top',scrub:1}});
+      gsap.fromTo('.ribbon-track',{x:()=>-$('.ribbon-group').getBoundingClientRect().width*.12},{x:()=>-$('.ribbon-group').getBoundingClientRect().width*.32,ease:'none',scrollTrigger:{trigger:'.ribbon',start:'top bottom',end:'bottom top',scrub:1,invalidateOnRefresh:true}});
       gsap.from('.taste-item',{x:i=>(i%2?-1:1)*distance,y:i=>i===1?-80:60,rotation:i=>(i%2?-1:1)*30,scale:.7,scrollTrigger:{trigger:'.tastes',start:'top bottom',end:'center 65%',scrub:.8},ease:'none'});
       gsap.fromTo('.taste-circle',{scale:.65},{scale:1,ease:'none',scrollTrigger:{trigger:'.tastes',start:'top bottom',end:'center center',scrub:.8}});
       gsap.fromTo('.mix-orbit',{rotation:-70,scale:.65},{rotation:15,scale:1,ease:'none',scrollTrigger:{trigger:'.mix-section',start:'top bottom',end:'center center',scrub:.8}});
@@ -254,7 +372,7 @@
       gsap.to('.faq-sun',{rotation:110,ease:'none',scrollTrigger:{trigger:'.faq-section',start:'top bottom',end:'bottom top',scrub:1}});
       gsap.fromTo('.contact-art>svg',{rotation:-80,scale:.6},{rotation:45,scale:1,ease:'none',scrollTrigger:{trigger:'.contact-section',start:'top bottom',end:'center 65%',scrub:.8}});
       // Short organic idle movement pauses when the hero is not visible or the document is hidden.
-      const floating=gsap.to('.float-inner',{y:i=>i%2?-9:10,rotation:i=>i%2?3:-3,duration:2.6,stagger:.19,repeat:-1,yoyo:true,ease:'sine.inOut',transformOrigin:'center',paused:true});
+      const floating=gsap.to('.hero-float-idle',{y:i=>i%2?-4:4,rotation:i=>i%2?1.5:-1.5,duration:3.4,stagger:.23,repeat:-1,yoyo:true,ease:'sine.inOut',transformOrigin:'center',paused:true});
       let heroVisible=true;
       const updateIdle=()=>{if(heroVisible&&!document.hidden&&motionEnabled&&pageActive)floating.play();else floating.pause();};
       const observer=new IntersectionObserver(entries=>{heroVisible=entries[0].isIntersecting;updateIdle();},{threshold:0});
@@ -269,33 +387,18 @@
     motionContext?.revert();
     motionContext = null;
     if (window.gsap) {
-      const interactiveArt = $$('.taste-item, .taste-copy, .bowl-ingredient, .mix-count, .paper-bag, .bag-fruit');
+      const interactiveArt = $$('.taste-feedback, .taste-copy, .bowl-ingredient, .mix-count, .bag-feedback, .fruit-feedback');
       gsap.killTweensOf(interactiveArt);
       gsap.set(interactiveArt, {clearProps:'transform,opacity'});
     }
     resetPointer();
   }
 
-  const motionButton = $('#motion-toggle');
-  const motionStatus = $('#motion-status');
-  $('#motion-controls').hidden = false;
   function syncMotion() {
-    motionEnabled = userMotionEnabled && !reduced.matches;
+    motionEnabled = !reduced.matches;
     document.documentElement.dataset.motion = motionEnabled ? 'on' : 'off';
-    document.documentElement.dataset.motionReason = reduced.matches ? 'system' : userMotionEnabled ? 'enabled' : 'user';
-    motionButton.textContent = motionEnabled ? 'Анимация: вкл.' : 'Анимация: выкл.';
-    motionButton.setAttribute('aria-pressed', String(motionEnabled));
-    motionButton.setAttribute('aria-disabled', String(reduced.matches));
-    motionStatus.textContent = reduced.matches
-      ? 'Движение отключено настройкой устройства «Уменьшение движения».'
-      : motionEnabled ? 'Можно выключить всё движение на этой странице.' : 'Движение выключено. Все разделы и интерактивы работают.';
     if (motionEnabled && pageActive) createMotionScenes(); else stopMotionScenes();
   }
-  motionButton.addEventListener('click', () => {
-    if (reduced.matches) return;
-    userMotionEnabled = !userMotionEnabled;
-    syncMotion();
-  });
   reduced.addEventListener('change', syncMotion);
   if (window.gsap && window.ScrollTrigger) gsap.registerPlugin(ScrollTrigger);
   syncMotion();
